@@ -7,6 +7,9 @@
 
 #ifndef CIRCLE_H_
 #define CIRCLE_H_
+#include <opencv/cvaux.h>
+#include <opencv/highgui.h>
+#include <opencv/cxcore.h>
 
 
 class Circle {
@@ -25,7 +28,7 @@ public:
 
 	virtual ~Circle();
 
-	CvPoint getCentro() const
+	CvPoint getCentro()
 	{
 	    return centro;
 	}
@@ -35,7 +38,7 @@ public:
 	    this->centro = centro;
 	}
 
-	int getRadio() const
+	int getRadio()
 	{
 	    return radio;
 	}

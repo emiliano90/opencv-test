@@ -4,21 +4,18 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
-../ArrayList.cpp \
 ../Ball_detect.cpp \
 ../Circle.cpp \
 ../ball_detection.cpp \
 ../main.cpp 
 
 OBJS += \
-./ArrayList.o \
 ./Ball_detect.o \
 ./Circle.o \
 ./ball_detection.o \
 ./main.o 
 
 CPP_DEPS += \
-./ArrayList.d \
 ./Ball_detect.d \
 ./Circle.d \
 ./ball_detection.d \

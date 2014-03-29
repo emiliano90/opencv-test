@@ -1,32 +1,31 @@
-
 /*****************************************************************************************
-*  Name    : Fast object tracking using the OpenCV library                               *
-*  Author  : Lior Chen <chen.lior@gmail.com>                                             *
-*  Notice  : Copyright (c) Jun 2010, Lior Chen, All Rights Reserved                      *
-*          :                                                                             *
-*  Site    : http://www.lirtex.com                                                       *
-*  WebPage : http://www.lirtex.com/robotics/fast-object-tracking-robot-computer-vision   *
-*          :                                                                             *
-*  Version : 1.0                                                                         *
-*  Notes   : By default this code will open the first connected camera.                  *
-*          : In order to change to another camera, change                                *
-*          : CvCapture* capture = cvCaptureFromCAM( 0 ); to 1,2,3, etc.                  *
-*          : Also, the code is currently configured to tracking RED objects.             *
-*          : This can be changed by changing the hsv_min and hsv_max vectors             *
-*          :                                                                             *
-*  License : This program is free software: you can redistribute it and/or modify        *
-*          : it under the terms of the GNU General Public License as published by        *
-*          : the Free Software Foundation, either version 3 of the License, or           *
-*          : (at your option) any later version.                                         *
-*          :                                                                             *
-*          : This program is distributed in the hope that it will be useful,             *
-*          : but WITHOUT ANY WARRANTY; without even the implied warranty of              *
-*          : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the               *
-*          : GNU General Public License for more details.                                *
-*          :                                                                             *
-*          : You should have received a copy of the GNU General Public License           *
-*          : along with this program.  If not, see <http://www.gnu.org/licenses/>        *
-******************************************************************************************/
+ *  Name    : Fast object tracking using the OpenCV library                               *
+ *  Author  : Lior Chen <chen.lior@gmail.com>                                             *
+ *  Notice  : Copyright (c) Jun 2010, Lior Chen, All Rights Reserved                      *
+ *          :                                                                             *
+ *  Site    : http://www.lirtex.com                                                       *
+ *  WebPage : http://www.lirtex.com/robotics/fast-object-tracking-robot-computer-vision   *
+ *          :                                                                             *
+ *  Version : 1.0                                                                         *
+ *  Notes   : By default this code will open the first connected camera.                  *
+ *          : In order to change to another camera, change                                *
+ *          : CvCapture* capture = cvCaptureFromCAM( 0 ); to 1,2,3, etc.                  *
+ *          : Also, the code is currently configured to tracking RED objects.             *
+ *          : This can be changed by changing the hsv_min and hsv_max vectors             *
+ *          :                                                                             *
+ *  License : This program is free software: you can redistribute it and/or modify        *
+ *          : it under the terms of the GNU General Public License as published by        *
+ *          : the Free Software Foundation, either version 3 of the License, or           *
+ *          : (at your option) any later version.                                         *
+ *          :                                                                             *
+ *          : This program is distributed in the hope that it will be useful,             *
+ *          : but WITHOUT ANY WARRANTY; without even the implied warranty of              *
+ *          : MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the               *
+ *          : GNU General Public License for more details.                                *
+ *          :                                                                             *
+ *          : You should have received a copy of the GNU General Public License           *
+ *          : along with this program.  If not, see <http://www.gnu.org/licenses/>        *
+ ******************************************************************************************/
 #include <opencv/cvaux.h>
 #include <opencv/highgui.h>
 #include <opencv/cxcore.h>
@@ -40,142 +39,194 @@
 #include <limits.h>
 #include <time.h>
 #include <ctype.h>
-
-
-void addCircle(CvSeq &estados[], CvSeq &circles);
-
-int main(int argc, char* argv[])
-{
-	//Default capture size - 640x480
-	CvSize size = cvSize(640,480);
-	// Open capture device. 0 is /dev/video0, 1 is /dev/video1, etc.
-    CvCapture* capture = cvCaptureFromCAM( 0 );
-    if( !capture )
-    {
-            fprintf( stderr, "ERROR: capture is NULL \n" );
-            getchar();
-            return -1;
-    }
-    // Create a window in which the captured images will be presented
-    cvNamedWindow( "Camera", CV_WINDOW_AUTOSIZE );
-    cvNamedWindow( "HSV", CV_WINDOW_AUTOSIZE );
-    cvNamedWindow( "EdgeDetection", CV_WINDOW_AUTOSIZE );
-    // Detect a red ball
-    CvScalar hsv_min = cvScalar(150, 84, 130, 0);
-    CvScalar hsv_max = cvScalar(358, 256, 255, 0);
-    IplImage *  hsv_frame    = cvCreateImage(size, IPL_DEPTH_8U, 3);
-    IplImage*  thresholded   = cvCreateImage(size, IPL_DEPTH_8U, 1);
-
-
-
-//    ArrayList<ArrayList<Circle>> estados;
-    CvSeq *estados[5];
-    inicializar(*estados);
-    while( 1 )
-    {
-        // Get one frame
-        IplImage* frame = cvQueryFrame( capture );
-        if( !frame )
-        {
-                fprintf( stderr, "ERROR: frame is null...\n" );
-                getchar();
-                break;
-        }
-        // Covert color space to HSV as it is much easier to filter colors in the HSV color-space.
-        cvCvtColor(frame, hsv_frame, CV_BGR2HSV);
-        // Filter out colors which are out of range.
-        cvInRangeS(hsv_frame, hsv_min, hsv_max, thresholded);
-        // Memory for hough circles
-        CvMemStorage* storage = cvCreateMemStorage(0);
-        // hough detector works better with some smoothing of the image
-        cvSmooth( thresholded, thresholded, CV_GAUSSIAN, 9, 9 );
-        CvSeq* circles = cvHoughCircles(thresholded, storage, CV_HOUGH_GRADIENT, 2,
-                                        thresholded->height/4, 100, 50, 10, 400);
-
-        ArrayList<Circle> circulos;
-        for (int i = 0; i < circles->total; i++)
-        {
-
-            float* p = (float*)cvGetSeqElem( circles, i );
-        //    Circle a = Circle(cvPoint(cvRound(p[0]),cvRound(p[1])), cvRound(p[2]));
-
-         //   circulos.add(a);
-
-
-            printf("Ball! x=%f y=%f r=%f\n\r",p[0],p[1],p[2] );
-            cvCircle( frame, cvPoint(cvRound(p[0]),cvRound(p[1])),
-                                    3, CV_RGB(0,255,0), -1, 8, 0 );
-            cvCircle( frame, cvPoint(cvRound(p[0]),cvRound(p[1])),
-                                    cvRound(p[2]), CV_RGB(255,0,0), 3, 8, 0 );
-        }
-   //     estados.add(circulos);
-        addCircle(*estados, *circles);
-
-        cvShowImage( "Camera", frame ); // Original stream with detected ball overlay
-        cvShowImage( "HSV", hsv_frame); // Original stream in the HSV color space
-        cvShowImage( "After Color Filtering", thresholded ); // The stream after color filtering
-        cvReleaseMemStorage(&storage);
-        // Do not release the frame!
-        //If ESC key pressed, Key=0x10001B under OpenCV 0.9.7(linux version),
-        //remove higher bits using AND operator
-        if( (cvWaitKey(10) & 255) == 27 ) break;
-    }
-     // Release the capture device housekeeping
-     cvReleaseCapture( &capture );
-     cvDestroyWindow( "mywindow" );
-     return 0;
-}
-
-void addCircle(CvSeq &estados[], CvSeq &circles)
-{
-	estados[0] = estados[1];
-	estados[1] = estados[2];
-	estados[2] = estados[3];
-	estados[3] = estados[4];
-	estados[4] = circles;
-}
-void analizar(CvSeq &estados[])
-{
-
-
-}
-
-Circle buscarCercano(CvSeq &circulos, Circle c)
-{
-	Circle *cercano;
-	int distanciaCercano = 0;
-	for (int i = 0; i < circulos.total; i++)
+#include "Circle.h"
+const int FRAMES = 40;
+//aca quiero agregar al array estados los circulos
+//el circulo mas viejo se pierde como veras
+int count = FRAMES;
+void addCircle2(CvSeq *estados[], CvSeq circles) {
+	for (int i= 0; i < FRAMES - 1;i++)
 	{
-		float* p = (float*)cvGetSeqElem( &circulos, i );
-		Circle *c2 = &toCircle(p);
-		int dist = distancia(c, *c2);
-		if (i == 0)
-			distanciaCercano = dist;
-		else if (dist < distanciaCercano)
+		estados[i] = estados[i + 1];
+	}
+	estados[FRAMES - 1] = &circles;
+
+	if (count != 0)
+		count--;
+
+}
+
+Circle* analizar(CvSeq *estados[]);
+Circle buscarCercano(CvSeq*, Circle);
+Circle toCircle(float *p);
+int distancia(Circle a, Circle b);
+void inicializar(CvSeq *estados[]);
+
+int main(int argc, char* argv[]) {
+	//Default capture size - 640x480
+	CvSize size = cvSize(640, 480);
+	// Open capture device. 0 is /dev/video0, 1 is /dev/video1, etc.
+	CvCapture* capture = cvCaptureFromCAM(0);
+	if (!capture) {
+		fprintf(stderr, "ERROR: capture is NULL \n");
+		getchar();
+		return -1;
+	}
+	// Create a window in which the captured images will be presented
+	cvNamedWindow("Camera", CV_WINDOW_AUTOSIZE);
+	cvNamedWindow("HSV", CV_WINDOW_AUTOSIZE);
+	cvNamedWindow("EdgeDetection", CV_WINDOW_AUTOSIZE);
+	// Detect a red ball
+	CvScalar hsv_min = cvScalar(150, 84, 130, 0);
+	CvScalar hsv_max = cvScalar(358, 256, 255, 0);
+	IplImage * hsv_frame = cvCreateImage(size, IPL_DEPTH_8U, 3);
+	IplImage* thresholded = cvCreateImage(size, IPL_DEPTH_8U, 1);
+
+	//ESTA ES LA VARIABLE QUE TENGO QUE PASAR COMO PARAMETRO A TODAS LAS FUNCIONES
+	//UN ARRAY DE CcSeq y quiero que sean punteros a CvSeq
+	CvSeq *estados[FRAMES];
+
+	//en esta funcion queiro inicializar la variable que paso como parametro en null
+//	inicializar(estados);
+	while (1) {
+		// Get one frame
+		IplImage* frame = cvQueryFrame(capture);
+		if (!frame) {
+			fprintf(stderr, "ERROR: frame is null...\n");
+			getchar();
+			break;
+		}
+		// Covert color space to HSV as it is much easier to filter colors in the HSV color-space.
+		cvCvtColor(frame, hsv_frame, CV_BGR2HSV);
+		// Filter out colors which are out of range.
+		cvInRangeS(hsv_frame, hsv_min, hsv_max, thresholded);
+		// Memory for hough circles
+		CvMemStorage* storage = cvCreateMemStorage(0);
+		// hough detector works better with some smoothing of the image
+		cvSmooth(thresholded, thresholded, CV_GAUSSIAN, 9, 9);
+		CvSeq* circles = cvHoughCircles(thresholded, storage, CV_HOUGH_GRADIENT,
+				2, thresholded->height / 4, 100, 50, 10, 400);
+
+		for (int i = 0; i < circles->total; i++) {
+
+			float* p = (float*) cvGetSeqElem(circles, i);
+			//    Circle a = Circle(cvPoint(cvRound(p[0]),cvRound(p[1])), cvRound(p[2]));
+
+			//   circulos.add(a);
+
+			printf("Ball! x=%f y=%f r=%f\n\r", p[0], p[1], p[2]);
+			/* cvCircle( frame, cvPoint(cvRound(p[0]),cvRound(p[1])),
+			 3, CV_RGB(0,255,0), -1, 8, 0 );
+			 */
+		}
+		//     estados.add(circulos);
+		addCircle2( estados, *circles);
+
+		Circle *a = analizar( estados);
+		if (a != NULL)
+			cvCircle(frame, a->getCentro(), a->getRadio(), CV_RGB(255,0,0), 3, 8, 0);
+
+		cvShowImage("Camera", frame); // Original stream with detected ball overlay
+		cvShowImage("HSV", hsv_frame); // Original stream in the HSV color space
+		cvShowImage("After Color Filtering", thresholded); // The stream after color filtering
+		cvReleaseMemStorage(&storage);
+		// Do not release the frame!
+		//If ESC key pressed, Key=0x10001B under OpenCV 0.9.7(linux version),
+		//remove higher bits using AND operator
+		if ((cvWaitKey(10) & 255) == 27)
+			break;
+	}
+	// Release the capture device housekeeping
+	cvReleaseCapture(&capture);
+	cvDestroyWindow("mywindow");
+	return 0;
+}
+
+Circle *analizar(CvSeq *estados[]) {
+	Circle cercanos[FRAMES];
+	Circle *promedio = new Circle(cvPoint(0, 0), 0);
+	int i = count;
+//	while (i < 5 && estados[i] == NULL)
+//		i++;
+	if (i < FRAMES) {
+		int e = 0;
+
+		if (estados[i]->total != 0)
 		{
+			float* p = (float*) cvGetSeqElem(estados[i], 0);
+			Circle c2 = toCircle(p);
+
+			CvPoint centro;
+			for (int n = i; n < FRAMES - 1; n++) {
+
+				cercanos[e] = buscarCercano(estados[n + 1], c2);
+				centro = promedio->getCentro();
+				centro.x += cercanos[e].getCentro().x;
+				centro.y += cercanos[e].getCentro().y;
+				promedio->setCentro(centro);
+				promedio->setRadio(promedio->getRadio() + cercanos[e].getRadio());
+				e++;
+			}
+			if (e != 0) {
+
+				centro = promedio->getCentro();
+				centro.x = centro.x / e;
+				centro.y = centro.y / e;
+				promedio->setCentro(centro);
+				promedio->setRadio(promedio->getRadio() / e);
+			}
+			else
+			{
+				promedio = &c2;
+			}
+		}
+		else
+			return NULL;
+
+	}
+	return promedio;
+}
+
+Circle buscarCercano(CvSeq *circulos, Circle c) {
+	Circle cercano;
+
+	int distanciaCercano = 0;
+	for (int i = 0; i < circulos->total; i++) {
+		float* p = (float*) cvGetSeqElem(circulos, i);
+		Circle c2 = toCircle(p);
+		int dist = distancia(c, c2);
+
+		 if (i == 0)
+		{
+			distanciaCercano = dist;
+			cercano = c2;
+		}
+		else if (dist < distanciaCercano) {
 			cercano = c2;
 			distanciaCercano = dist;
 		}
+	}
+	if (distanciaCercano != 0)
+	{
+		 int a = 5;
+		 a++;
 	}
 	return cercano;
 
 }
 
-int distancia(Circle a, Circle b)
-{
+int distancia(Circle a, Circle b) {
 
-	return sqrt(pow(a.getCentro().x-b.getCentro().x, 2) + pow(a.getCentro().y-b.getCentro().y, 2));
+	return sqrt(
+			pow(a.getCentro().x - b.getCentro().x, 2)
+					+ pow(a.getCentro().y - b.getCentro().y, 2));
 }
-Circle toCircle(float *p)
-{
-	return new Circle(cvPoint(cvRound(p[0]),cvRound(p[1])), cvRound(p[2]));
+Circle toCircle(float *p) {
+	return Circle(cvPoint(cvRound(p[0]), cvRound(p[1])), cvRound(p[2]));
+
 }
-void inicializar(CvSeq &estados[])
-{
-	estados[0] = NULL;
-	estados[1] = NULL;
-	estados[2] = NULL;
-	estados[3] = NULL;
-	estados[4] = NULL;
+void inicializar(CvSeq *estados[]) {
+
+	memset(*estados,0, sizeof(CvSeq) * FRAMES);
 }
 
