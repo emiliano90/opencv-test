@@ -40,27 +40,43 @@
 #include <time.h>
 #include <ctype.h>
 #include "Circle.h"
-const int FRAMES = 40;
+#include <libcalg-1.0/libcalg.h>
+#include <libcalg-1.0/libcalg/list.h>
+#include <list>
+const int FRAMES = 8;
 //aca quiero agregar al array estados los circulos
 //el circulo mas viejo se pierde como veras
 int count = FRAMES;
-void addCircle2(CvSeq *estados[], CvSeq circles) {
+void addCircle2(CvSeq estados[FRAMES], CvSeq circles) {
 	for (int i= 0; i < FRAMES - 1;i++)
 	{
 		estados[i] = estados[i + 1];
 	}
-	estados[FRAMES - 1] = &circles;
+	estados[FRAMES - 1] = circles;
 
 	if (count != 0)
 		count--;
 
 }
 
-Circle* analizar(CvSeq *estados[]);
-Circle buscarCercano(CvSeq*, Circle);
+void addCircle(std::vector<Circle> estados[FRAMES], std::vector<Circle> circles) {
+
+	for (int i= 0; i < FRAMES - 1;i++)
+	{
+		estados[i] = estados[i + 1];
+	}
+	estados[FRAMES - 1] = circles;
+
+	if (count != 0)
+		count--;
+
+}
+
+Circle* analizar(std::vector<Circle> estados[FRAMES]);
+Circle* buscarCercano(std::vector<Circle>, Circle);
 Circle toCircle(float *p);
 int distancia(Circle a, Circle b);
-void inicializar(CvSeq *estados[]);
+void inicializar(CvSeq estados[FRAMES]);
 
 int main(int argc, char* argv[]) {
 	//Default capture size - 640x480
@@ -84,7 +100,12 @@ int main(int argc, char* argv[]) {
 
 	//ESTA ES LA VARIABLE QUE TENGO QUE PASAR COMO PARAMETRO A TODAS LAS FUNCIONES
 	//UN ARRAY DE CcSeq y quiero que sean punteros a CvSeq
-	CvSeq *estados[FRAMES];
+
+	//CvSeq estados[FRAMES];
+	std::vector<Circle> estados[FRAMES];
+
+//	ArrayList estados2[FRAMES];
+//	ArrayList* miArray = arraylist_new(sizeof(Circle));
 
 	//en esta funcion queiro inicializar la variable que paso como parametro en null
 //	inicializar(estados);
@@ -107,23 +128,33 @@ int main(int argc, char* argv[]) {
 		CvSeq* circles = cvHoughCircles(thresholded, storage, CV_HOUGH_GRADIENT,
 				2, thresholded->height / 4, 100, 50, 10, 400);
 
+
+
+
+		std::vector<Circle> circulos;
+
 		for (int i = 0; i < circles->total; i++) {
 
 			float* p = (float*) cvGetSeqElem(circles, i);
-			//    Circle a = Circle(cvPoint(cvRound(p[0]),cvRound(p[1])), cvRound(p[2]));
 
+			Circle a = Circle(cvPoint(cvRound(p[0]),cvRound(p[1])), cvRound(p[2]));
+		//	ArrayListValue mucosa;
+			//mucosa = a;
+			circulos.push_back(a);
+		//	arraylist_append(miArray, &a);
 			//   circulos.add(a);
 
 			printf("Ball! x=%f y=%f r=%f\n\r", p[0], p[1], p[2]);
-			/* cvCircle( frame, cvPoint(cvRound(p[0]),cvRound(p[1])),
-			 3, CV_RGB(0,255,0), -1, 8, 0 );
-			 */
+			cvCircle( frame, cvPoint(cvRound(p[0]),cvRound(p[1])),
+					cvRound(p[2]), CV_RGB(0,255,0), 2, 8, 0 );
+
 		}
+		addCircle( estados, circulos);
 		//     estados.add(circulos);
-		addCircle2( estados, *circles);
+	//	addCircle( estados2, *miArray);
 
 		Circle *a = analizar( estados);
-		if (a != NULL)
+		if (a != NULL && a->getRadio() > 0 && a->getCentro().x > 0&& a->getCentro().y > 0 )
 			cvCircle(frame, a->getCentro(), a->getRadio(), CV_RGB(255,0,0), 3, 8, 0);
 
 		cvShowImage("Camera", frame); // Original stream with detected ball overlay
@@ -142,8 +173,9 @@ int main(int argc, char* argv[]) {
 	return 0;
 }
 
-Circle *analizar(CvSeq *estados[]) {
-	Circle cercanos[FRAMES];
+Circle *analizar(std::vector<Circle> estados[FRAMES]) {
+	Circle *cercano;
+	Circle *predecida = new Circle(cvPoint(0, 0), 0);
 	Circle *promedio = new Circle(cvPoint(0, 0), 0);
 	int i = count;
 //	while (i < 5 && estados[i] == NULL)
@@ -151,33 +183,77 @@ Circle *analizar(CvSeq *estados[]) {
 	if (i < FRAMES) {
 		int e = 0;
 
-		if (estados[i]->total != 0)
-		{
-			float* p = (float*) cvGetSeqElem(estados[i], 0);
-			Circle c2 = toCircle(p);
 
+		while(i < FRAMES && estados[i].size() == 0)
+			i++;
+		if (i < FRAMES)
+		{
+			 //list<int>::iterator i;
+			//for(i=L.begin(); i != L.end(); ++i)
+
+
+
+			Circle anterior = estados[i][0];
+			Circle anterior2 = anterior;
 			CvPoint centro;
 			for (int n = i; n < FRAMES - 1; n++) {
 
-				cercanos[e] = buscarCercano(estados[n + 1], c2);
-				centro = promedio->getCentro();
-				centro.x += cercanos[e].getCentro().x;
-				centro.y += cercanos[e].getCentro().y;
-				promedio->setCentro(centro);
-				promedio->setRadio(promedio->getRadio() + cercanos[e].getRadio());
-				e++;
+				cercano = buscarCercano(estados[n + 1], anterior);
+				if (cercano != NULL)
+				{
+					centro = predecida->getCentro();
+					centro.x += cercano->getCentro().x - anterior.getCentro().x;
+					centro.y += cercano->getCentro().y - anterior.getCentro().y;
+
+					predecida->setCentro(centro);
+				//	predecida->getCentro().x =+ cercano.getCentro().x - anterior.getCentro().x;
+				//	predecida->getCentro().y =+ cercano.getCentro().y - anterior.getCentro().y;
+
+
+
+
+					centro = promedio->getCentro();
+					centro.x += cercano->getCentro().x;
+					centro.y += cercano->getCentro().y;
+					promedio->setCentro(centro);
+					promedio->setRadio(promedio->getRadio() + cercano->getRadio());
+
+					anterior2 = anterior;
+					anterior = *cercano;
+
+					e++;
+				}
+				else
+				{
+					e = e+1;
+					e--;
+				}
 			}
 			if (e != 0) {
 
-				centro = promedio->getCentro();
-				centro.x = centro.x / e;
-				centro.y = centro.y / e;
+				centro = anterior2.getCentro();
+				centro.x += predecida->getCentro().x / e;
+				centro.y += predecida->getCentro().y / e;
+
+				centro.x += anterior.getCentro().x;
+				centro.y += anterior.getCentro().y;
+
+				centro.x = centro.x / 2;
+				centro.y  = centro.y / 2;
+
+			//	anterior.getCentro().x += predecida->getCentro().x / e;
+			//	anterior.getCentro().y += predecida->getCentro().y / e;
+
+				anterior.setCentro(centro);
+				promedio= &anterior;
+				return promedio;
+				promedio->setCentro(centro);
 				promedio->setCentro(centro);
 				promedio->setRadio(promedio->getRadio() / e);
 			}
 			else
 			{
-				promedio = &c2;
+				promedio = &anterior;
 			}
 		}
 		else
@@ -187,14 +263,14 @@ Circle *analizar(CvSeq *estados[]) {
 	return promedio;
 }
 
-Circle buscarCercano(CvSeq *circulos, Circle c) {
-	Circle cercano;
+Circle *buscarCercano(std::vector<Circle> circulos, Circle c) {
+	Circle *cercano = NULL;
 
 	int distanciaCercano = 0;
-	for (int i = 0; i < circulos->total; i++) {
-		float* p = (float*) cvGetSeqElem(circulos, i);
-		Circle c2 = toCircle(p);
-		int dist = distancia(c, c2);
+	for (int i = 0; i < ((int)circulos.size()); i++) {
+	//	float* p = (float*) cvGetSeqElem(circulos, i);
+		Circle *c2 = &circulos[i];
+		int dist = distancia(c, *c2);
 
 		 if (i == 0)
 		{
@@ -206,11 +282,7 @@ Circle buscarCercano(CvSeq *circulos, Circle c) {
 			distanciaCercano = dist;
 		}
 	}
-	if (distanciaCercano != 0)
-	{
-		 int a = 5;
-		 a++;
-	}
+
 	return cercano;
 
 }
