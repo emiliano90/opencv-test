@@ -7,8 +7,7 @@
 
 #ifndef RED_OBJECT_TRACKING_H_
 #define RED_OBJECT_TRACKING_H_
-
-int mainRedObjectTracking();
-
+void *startRedObjectTracking(void *arg);
+//int startRedObjectTracking();
 
 #endif /* RED_OBJECT_TRACKING_H_ */
