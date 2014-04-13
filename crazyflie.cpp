@@ -7,15 +7,14 @@
 //============================================================================
 
 #include <iostream>
-#include <CCrazyflie.h>
 #include <semaphore.h>
 #include "estructuras.h"
+#include "crazyflie.h"
 
 using namespace std;
 
-void *startCrazyFlie(void *arg)
-{
-	ThreadAttr *args = ( ThreadAttr *)arg;
+void *startCrazyFlie(void *arg) {
+	ThreadAttr *args = (ThreadAttr *) arg;
 
 	cout << "!!!Hello sWorld!!!" << endl;
 
@@ -27,41 +26,32 @@ void *startCrazyFlie(void *arg)
 		cout << "Connected to the copter" << endl;
 
 		cout << "Setting thrust to 10001" << endl;
-		cflieCopter->setThrust(10001);
+		cflieCopter->setThrust(0);
 
-		Posicion ballPos = getPosicion(arg, cflieCopter);
+		Posicion ballPos = getPosicion(args, cflieCopter);
 
 		// Enable sending the setpoints. This can be used to temporarily
 		// stop updating the internal controller setpoints and instead
 		// sending dummy packets (to keep the connection alive).
 		cflieCopter->setSendSetpoints(true);
 
-		int i = 0;
-		float pitch = 0;
-		float roll = 0;
+		while (cflieCopter->cycle()) {
 
-		while (cflieCopter->cycle() && i < 500) {
+			cflieCopter->setThrust(40000);
+			cflieCopter->setPitch(-1);
 
-			cout << "main loop " << i << endl;
-			// Main loop. Currently empty.
+			printf(
+					"Ball antes ==> {x: %d , y: %d, z: %d diametro: %d Roll: %f Yaw: %f Pitch: %f  \r\n",
+					args->data.tPos.x, args->data.tPos.y, args->data.tPos.z, args->data.tPos.diametro, cflieCopter->roll(),
+					cflieCopter->yaw(), cflieCopter->pitch());
 
-			/* Examples to set thrust, and RPY: */
+			ballPos = getPosicion(args, cflieCopter);
 
-			// Range: 10001 - (approx.) 60000
-			cflieCopter->setThrust(41000);
+			printf(
+					"Ball Corregida ==> {x: %d , y: %d } z: %d Roll: %f Yaw: %f Pitch: %f  \r\n",
+					ballPos.x, ballPos.y, ballPos.z, cflieCopter->roll(),
+					cflieCopter->yaw(), cflieCopter->pitch());
 
-			pitch = cflieCopter->pitch();
-			roll = cflieCopter->roll();
-
-			cflieCopter->setPitch(pitch * -1);
-			cflieCopter->setRoll(roll * -1);
-
-			cout << "----------------------" << "\t FLIGHT INFO "
-					<< "----------------------" << endl << "  Pitch: "
-					<< cflieCopter->pitch() << "  Roll: " << cflieCopter->roll()
-					<< "  Yaw: " << cflieCopter->yaw() << endl
-					<< "--------------------------------------------" << endl;
-			i++;
 		}
 
 		cout << endl << "Aterrizando..." << endl;
@@ -75,8 +65,6 @@ void *startCrazyFlie(void *arg)
 			sleep(0.5);
 		}
 
-		cout << "main loop end " << i << endl
-				<< "setting thrust to 0. motors down" << endl;
 		cflieCopter->setThrust(0);
 
 		delete cflieCopter;
@@ -90,10 +78,9 @@ void *startCrazyFlie(void *arg)
 	return 0;
 }
 
-Posicion getPosicion(void *threadAttr, CCrazyflie *copter)
-{
+Posicion getPosicion(void *threadAttr, CCrazyflie *copter) {
 	Posicion ballPos;
-	ThreadAttr *args = ( ThreadAttr *)threadAttr;
+	ThreadAttr *args = (ThreadAttr *) threadAttr;
 
 	sem_wait(&args->mutex);
 	Point centro;
@@ -101,21 +88,21 @@ Posicion getPosicion(void *threadAttr, CCrazyflie *copter)
 	centro.x = args->data.imgSize.width / 2;
 
 	//empezamos trabajando con el roll
-	float ady = centro.x - args->data.tPos.x;
+	float ady = args->data.tPos.x - centro.x;
 	float op = centro.y - args->data.tPos.y;
 
-	float ang1 = atan(op/ady);
-	if(ady < 0 && op < 0)
-		ang1 =+ M_PI;
+	float ang1 = atan(op / ady);
+	if (ady < 0 && op < 0)
+		ang1 += M_PI;
 	else if (ady < 0)
-		ang1 =+ M_PI;
+		ang1 += M_PI;
 
 	float hipo = op / sin(ang1);
 
 	//si el roll es menor a 0 hay que restarselo a ang1
 	//si el roll es mayor a 0 hay que sumarselo a ang1
 
-	ang1 =+ gradosARad(copter->roll());
+	ang1 += gradosARad(copter->roll());
 
 	float op2 = sin(ang1) * hipo;
 	ballPos.x = cos(ang1) * hipo;
@@ -124,26 +111,24 @@ Posicion getPosicion(void *threadAttr, CCrazyflie *copter)
 //	float dist = centro.x - args->data.tPos.x;
 //	float op = centro.y - args->data.tPos.y;
 
-	float ang1 = asin(op2 / args->data.tPos.z);
-/*	if(args->data.tPos.z < 0 && op2 < 0)
-		ang1 =+ M_PI;
-	else if (args->data.tPos.z < 0)
-		ang1 =+ M_PI;
-*/
-	ang1 =+ gradosARad(copter->pitch());
+	float ang2 = asin(op2 / args->data.tPos.z);
+	/*	if(args->data.tPos.z < 0 && op2 < 0)
+	 ang1 =+ M_PI;
+	 else if (args->data.tPos.z < 0)
+	 ang1 =+ M_PI;
+	 */
+	ang2 += gradosARad(copter->pitch());
 
-	ballPos.y = sin(ang1) * args->data.tPos.z;
-	ballPos.z = cos(ang1) * args->data.tPos.z;
+	ballPos.y = sin(ang2) * args->data.tPos.z;
+	ballPos.z = cos(ang2) * args->data.tPos.z;
 
 	sem_post(&args->mutex);
 
 	return ballPos;
 }
-float radAGrados(float rad)
-{
+float radAGrados(float rad) {
 	return rad * 180 / M_PI;
 }
-float gradosARad(float grados)
-{
+float gradosARad(float grados) {
 	return grados * M_PI / 180;
 }

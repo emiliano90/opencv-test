@@ -1,6 +1,5 @@
 // Cristóbal Carnero Liñán <grendel.ccl@gmail.com>
 
-
 #include <unistd.h>
 #include <iostream>
 #include <iomanip>
@@ -28,6 +27,8 @@ using namespace cv;
 bool isCircle(std::string window, cv::Mat image, int x1, int y1, int ancho,
 		int alto) {
 
+	return true;
+
 	vector<Vec3f> circulos;
 	cv::Mat gris;
 	// creo una subimagen de las coordenadas que me pasan del tracking
@@ -53,10 +54,10 @@ bool isCircle(std::string window, cv::Mat image, int x1, int y1, int ancho,
 	}
 	return false;
 }
-void *startRedObjectTracking(void *arg){
-	ThreadAttr *args = ( ThreadAttr *)arg;
+void *startRedObjectTracking(void *arg) {
+	ThreadAttr *args = (ThreadAttr *) arg;
 
- //int startRedObjectTracking() {
+	//int startRedObjectTracking() {
 
 //int main() {
 	printf("\r\n----------------------------------------\r\n");
@@ -75,14 +76,19 @@ void *startRedObjectTracking(void *arg){
 
 	CvSize imgSize = cvGetSize(img);
 
+	sem_wait(&args->mutex);
+	args->data.imgSize.height = imgSize.height;
+	args->data.imgSize.width = imgSize.width;
+	sem_post(&args->mutex);
+
 	IplImage *frame = cvCreateImage(imgSize, img->depth, img->nChannels);
 
 	IplConvKernel* morphKernel = cvCreateStructuringElementEx(5, 5, 1, 1,
 			CV_SHAPE_RECT, NULL);
 
 	//para el calculo de la distacia
-	float pendiente = (diamCerca - diamLejos) / (distCerca - distLejos);
-	float dominio = diamCerca - pendiente * distCerca;
+	float pendiente = (DIAM_CERCA - DIAM_LEJOS) / (DIST_CERCA - DIST_LEJOS);
+	float dominio = DIAM_CERCA - pendiente * DIST_CERCA;
 	//****************
 
 	bool quit = false;
@@ -148,8 +154,8 @@ void *startRedObjectTracking(void *arg){
 				sem_wait(&args->mutex);
 				args->data.tPos.x = itTracks->second->centroid.x;
 				args->data.tPos.y = itTracks->second->centroid.y;
-				args->data.tPos.z = pendiente * diametro + dominio;// se calcula la distancia en base a los valores predefinidos
-				args->data.tPos.z = diametro;
+				args->data.tPos.z = pendiente * diametro + dominio; // se calcula la distancia en base a los valores predefinidos
+				args->data.tPos.diametro = diametro;
 				sem_post(&args->mutex);
 			}
 

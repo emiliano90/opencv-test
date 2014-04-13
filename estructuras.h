@@ -35,7 +35,7 @@ struct Point {
 
 struct Datos {
 	Posicion tPos;
-	Size imgSize
+	Size imgSize;
 	bool bActual;
 };
 

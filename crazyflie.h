@@ -5,10 +5,16 @@
  *      Author: toshiba
  */
 
+#include <CCrazyflie.h>
+
+
 #ifndef CRAZYFLIE_H_
 #define CRAZYFLIE_H_
- void *startCrazyFlie(void *arg);
-//int startCrazyFlie();
+
+float radAGrados(float rad);
+float gradosARad(float grados);
+Posicion getPosicion(void *threadAttr, CCrazyflie *copter);
+void *startCrazyFlie(void *arg);
 
 
 #endif /* CRAZYFLIE_H_ */
