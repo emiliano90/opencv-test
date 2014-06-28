@@ -43,7 +43,8 @@
 #include <libcalg-1.0/libcalg.h>
 #include <libcalg-1.0/libcalg/list.h>
 #include <list>
-const int FRAMES = 8;
+#include "ball_detection.h"
+
 //aca quiero agregar al array estados los circulos
 //el circulo mas viejo se pierde como veras
 int count = FRAMES;
@@ -72,17 +73,13 @@ void addCircle(std::vector<Circle> estados[FRAMES], std::vector<Circle> circles)
 
 }
 
-Circle* analizar(std::vector<Circle> estados[FRAMES]);
-Circle* buscarCercano(std::vector<Circle>, Circle);
-Circle toCircle(float *p);
-int distancia(Circle a, Circle b);
-void inicializar(CvSeq estados[FRAMES]);
 
-int main(int argc, char* argv[]) {
+
+int startBallDetection() {
 	//Default capture size - 640x480
-	CvSize size = cvSize(640, 480);
+	CvSize size = cvSize(720, 480);
 	// Open capture device. 0 is /dev/video0, 1 is /dev/video1, etc.
-	CvCapture* capture = cvCaptureFromCAM(0);
+	CvCapture* capture = cvCaptureFromCAM(1);
 	if (!capture) {
 		fprintf(stderr, "ERROR: capture is NULL \n");
 		getchar();
@@ -301,4 +298,5 @@ void inicializar(CvSeq *estados[]) {
 
 	memset(*estados,0, sizeof(CvSeq) * FRAMES);
 }
+
 

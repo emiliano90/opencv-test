@@ -7,13 +7,14 @@
 
 #ifndef ESTRUCTURAS_H_
 #define ESTRUCTURAS_H_
-
+#include <semaphore.h>
+#include <vector>
 //DEFINIR ESTOS VALORES PARA EL CALCULO DE LA DISTANCIA
-const int DIST_CERCA = 50;//cm
-const int DIST_LEJOS = 300;//cm
+const int DIST_CERCA = 0;//cm
+const int DIST_LEJOS = 110;//cm
 
-const int DIAM_CERCA = 150;//px
-const int DIAM_LEJOS = 30;//px
+const int DIAM_CERCA = 4;//px
+const int DIAM_LEJOS = 6;//px
 
 struct Posicion {
 	int x;
@@ -33,10 +34,22 @@ struct Point {
 	int y;
 };
 
+struct Copter {
+	float roll;
+	float pitch;
+	float yaw;
+	int thust;
+};
+
 struct Datos {
+	std::vector<Posicion> tLastPos;
 	Posicion tPos;
-	Size imgSize
+//	Posicion tLastPos;
+	Size imgSize;
 	bool bActual;
+	char key;
+	Copter copterSets;
+	Copter copterValues;
 };
 
 struct ThreadAttr {

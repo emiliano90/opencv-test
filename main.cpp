@@ -2,12 +2,14 @@
 #include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <vector>
 #include "estructuras.h"
-#include "red_object_tracking.h"
+#include "camara1_detection.h"
+#include "camara2_detection.h"
 #include "crazyflie.h"
-
-
+#include "contours.h"
+#include "ball_detection.h"
+#include <X11/Xlib.h>
 
 
 
@@ -15,22 +17,52 @@
 //static void *redObjectTracking(void *arg);
 
 int main(int argc, char* argv[]) {
-//	pid_t pid;
-//	int status;
+	pid_t pid;
+	int status;
 
+//	XInitThreads();
 	ThreadAttr attr;
+/*	attr.data.tLastPos.x = -1;
+	attr.data.tLastPos.y = -1;
+	attr.data.tLastPos.z = -1;
+*/
+//	searchContours();
 
 	sem_init(&attr.mutex, 0, 1);
 
 	pthread_t tid1, tid2;
 
+//	startBallDetection();
+
+	if (pthread_create(&tid1, NULL, startAlturaDetection, &attr)) {
+
+		printf("\n ERROR creating tstatic void *startAlturaDetection(void *arg) {hread 1");
+		exit(1);
+	}
+
+/*	if (pthread_create(&tid1, NULL, startRedObjectTracking, &attr)) {
+
+		printf("\n ERROR creating tstatic void *startRedObjectTracking(void *arg) {hread 1");
+		exit(1);
+	}
+//*/	startRedObjectTracking(&attr);
+//	wait();
+
+/*
 	if (pthread_create(&tid1, NULL, startRedObjectTracking, &attr)) {
 
 		printf("\n ERROR creating tstatic void *startRedObjectTracking(void *arg) {hread 1");
 		exit(1);
 	}
+	if (pthread_create(&tid1, NULL, startAlturaDetection, &attr)) {
 
-	startCrazyFlie(&attr);
+		printf("\n ERROR creating tstatic void *startAlturaDetection(void *arg) {hread 1");
+		exit(1);
+	}
+
+	startCrazyFlie(&attr);*/
+	wait();
+
 /*	if (pthread_create(&tid2, NULL, startCrazyFlie, &attr)) {
 
 		printf("\n ERROR creating thread 2");
