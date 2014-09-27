@@ -67,7 +67,7 @@ bool isCircle2(std::string window, cv::Mat image, int x1, int y1, int ancho,
 	}
 	return false;
 }
-void *startAlturaDetection(void *arg){
+void *startCamara2(void *arg){
 	ThreadAttr *args = ( ThreadAttr *)arg;
 
  //int startRedObjectTracking() {
@@ -136,12 +136,12 @@ void *startAlturaDetection(void *arg){
 
 //	cvNamedWindow("redMorfhology", CV_WINDOW_AUTOSIZE);
 
-	CvCapture *capture = cvCaptureFromCAM(0);
+	CvCapture *capture = cvCaptureFromCAM(1);
 
 //	system("v4l2-ctl -d /dev/video1 -i 0 -s 0 --set-fmt-video=width=720,height=480,pixelformat=0");
 
-//	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH, 540);
-//	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_HEIGHT, 360);
+	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH, 1280);
+	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_HEIGHT, 1024);
 	double widht = cvGetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH);
 	double height = cvGetCaptureProperty(capture, CV_CAP_PROP_FRAME_HEIGHT);
 

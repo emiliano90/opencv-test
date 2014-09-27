@@ -21,12 +21,21 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <math.h>
 #include <semaphore.h>
+#include <fstream>
+#include <iostream>
 
+using namespace std;
 
 using namespace cvb;
 using namespace cv;
 
+ofstream m_myfile;
+
+vector<CvPoint> destinos;
+int nDestino;
+std::string times;
 vector<CvScalar> muestras;
+bool bPerdido = false;
 CvScalar hsvMax;// = (340, 255, 255);
 CvScalar hsvMin;// =(310, 125, 153);
 /*muestras[0] = CV_RGB(200, 142, 202);
@@ -67,7 +76,7 @@ bool isCircle(std::string window, cv::Mat image, int x1, int y1, int ancho,
 	}
 	return false;
 }
-void *startRedObjectTracking(void *arg){
+void *startCamara1(void *arg){
 	ThreadAttr *args = ( ThreadAttr *)arg;
 
  //int startRedObjectTracking() {
@@ -110,12 +119,17 @@ void *startRedObjectTracking(void *arg){
 	hsvMax.val[1] = 255;
 	hsvMax.val[2] = 255;
 
-	hsvMin.val[0] = 135;
-	hsvMin.val[1] = 66;//76 bien  56
-	hsvMin.val[2] = 140;//125  //130
+	hsvMin.val[0] = 135;// 0.75 135
+	hsvMin.val[1] = 80;//76 bien  56  0.25 66
+	hsvMin.val[2] = 130;//125  //130 0.54 140
 
 	muestras.push_back(CV_RGB(250, 144, 255));
 
+	const int START = 90;
+	const int AMPLIAR_Y = 10;
+	const int AMPLIAR_X = 3;
+	const int CENTRO_Y = START + AMPLIAR_Y * 30 / 2;
+	const int HEIGHT_GRAF = AMPLIAR_Y * 30 + 90;
 
 	struct timeval start, end;
 
@@ -137,10 +151,10 @@ void *startRedObjectTracking(void *arg){
 
 	CvCapture *capture = cvCaptureFromCAM(1);
 
-//	system("v4l2-ctl -d /dev/video1 -i 0 -s 0 --set-fmt-video=width=720,height=480,pixelformat=0");
+//	system("v4l2-ctl -d /dev/video1 -i 0 -s 0 --set-fmt-video=width=1280,height=1024,pixelformat=0");
 
-//	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH, 540);
-//	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_HEIGHT, 360);
+	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH, 640);//1280
+	cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_HEIGHT, 480);//1024
 	double widht = cvGetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH);
 	double height = cvGetCaptureProperty(capture, CV_CAP_PROP_FRAME_HEIGHT);
 
@@ -159,12 +173,26 @@ void *startRedObjectTracking(void *arg){
 
 	IplImage *frame = cvCreateImage(imgSize, img->depth, img->nChannels);
 
-	IplConvKernel* morphKernel = cvCreateStructuringElementEx(5, 5, 1, 1,
-			CV_SHAPE_RECT, NULL);
+	IplConvKernel *se11 = cvCreateStructuringElementEx(11, 11, 5, 5, CV_SHAPE_ELLIPSE, NULL);
+	IplConvKernel *se5 = cvCreateStructuringElementEx(5, 5, 2,  2,  CV_SHAPE_ELLIPSE, NULL);
+
+	//Para detectar clicks en la ventana
+	cvNamedWindow("Deteccion", CV_WINDOW_AUTOSIZE);
+	cv::setMouseCallback("Deteccion", CallBackClick, NULL);
+
+	//Defino los destinos
+	destinos.push_back(cvPoint(320, 240));
+	/*
+	destinos.push_back(cvPoint(180, 150));
+	destinos.push_back(cvPoint(460, 150));
+	destinos.push_back(cvPoint(460, 330));
+	destinos.push_back(cvPoint(180, 330));
+	*/
+	nDestino = 0;
+	int lastDest = 0;
 
 	//esto es para grabar el video en un archivo
-
-	time_t _tm =time(NULL );
+	time_t _tm = time(NULL );
 
 	struct tm * curtime = localtime ( &_tm );
 
@@ -178,20 +206,46 @@ void *startRedObjectTracking(void *arg){
 	strftime(buffer,80,"%d-%m-%Y %I:%M:%S",timeinfo);
 	std::string str(buffer);
 
+	times = str;
+
 	string source = "/home/toshiba/tesis/video/";
 	source.append(buffer);
 	source.append(".avi");
 
-//"IYUV
+	string source2 = "/home/toshiba/tesis/video/";
+	source2.append(buffer);
+	source2.append("_2.avi");
 
+	string source3 = "/home/toshiba/tesis/video/";
+	source3.append(buffer);
+	source3.append("_3.avi");
+
+	string source4 = "/home/toshiba/tesis/video/";
+	source4.append(buffer);
+	source4.append(".txt");
+	m_myfile.open (source4.data(), ios::out | ios::app);
+
+	//"IYUV
 	VideoWriter outputVideo;                                        // Open the output
-	outputVideo.open(source, CV_FOURCC('X','V','I','D'), 12, imgSize, false);
+	outputVideo.open(source, CV_FOURCC('X','V','I','D'), 12, cvSize(imgSize.width * 2,imgSize.height), true);
+
+	VideoWriter outputVideo2;                                        // Open the output
+	outputVideo2.open(source2, CV_FOURCC('X','V','I','D'), 12, cvSize(imgSize.width,imgSize.height), true);
+
+	VideoWriter outputVideo3;                                        // Open the output
+	outputVideo3.open(source3, CV_FOURCC('X','V','I','D'), 12, cvSize(imgSize.width,imgSize.height), true);
 
 	if (!outputVideo.isOpened())
 	{
 		printf("Could not open the output video for write: %s", source.c_str() );
 		return 0;
 	}
+	if (!outputVideo2.isOpened())
+	{
+		printf("Could not open the output video2 for write: %s", source2.c_str() );
+		return 0;
+	}
+	//fin grabar video
 
 	//para el calculo de la distacia
 	float pendiente =  float(DIST_CERCA - DIST_LEJOS) / float(DIAM_CERCA - DIAM_LEJOS);
@@ -224,10 +278,13 @@ void *startRedObjectTracking(void *arg){
 
 		cvConvertScale(img, frame, 1, 0);
 
-		cvShowImage("camera2", frame);
+		outputVideo2.write(img);
+
+		cvShowImage("Camara1", frame);
 
 		//cvSize(640,640)
 		IplImage *segmentated = cvCreateImage(imgSize, IPL_DEPTH_8U, 3);
+		IplImage *color2 = cvCreateImage(imgSize, IPL_DEPTH_8U, 3);
 
 		cvCvtColor(frame, frame, COLOR_BGR2HSV);
 
@@ -235,8 +292,15 @@ void *startRedObjectTracking(void *arg){
 		// crea una matriz (IplImage* segmented) solo de pixeles blancos (para los rojos) y negros (para el resto)
 		for (int j = 0; j < imgSize.height; j++)
 			for (int i = 0; i < imgSize.width; i++) {
-				CvScalar c = cvGet2D(frame, j, i);
 
+				CvScalar c = cvGet2D(frame, j, i);
+/*
+				sumarScalar(c, cvGet2D(frame, j+1, i));
+				sumarScalar(c, cvGet2D(frame, j-1, i));
+				sumarScalar(c, cvGet2D(frame, j, i+1));
+				sumarScalar(c, cvGet2D(frame, j, i-1));
+				dividirScalar(c, 5);
+*/
 				unsigned char f = 255 * !isSimilarHsv(c);
 			/*	double b = ((double) c.val[0]) / 255.;
 				double g = ((double) c.val[1]) / 255.;
@@ -244,16 +308,25 @@ void *startRedObjectTracking(void *arg){
 				unsigned char f = 255 * !((r > 0.1 + g) && (r > b));
 // && (g - 0.1 < b) && (g > b - 0.5)
   				*/
-
 				cvSet2D(segmentated, j, i, CV_RGB(f, f, f));
+				if (!f)
+					cvSet2D(color2, j, i, c);
+				else
+					cvSet2D(color2, j, i, CV_RGB(255, 255, 255));
+
 			}
-
-
+		cvCvtColor(color2, color2, COLOR_HSV2BGR);
+		//cvShowImage("Color", color2);
 
 		// pagina 120 de O'Reilly Learning Opencv
-		cvMorphologyEx(segmentated, segmentated, NULL, morphKernel, CV_MOP_OPEN,1);
+//		cvMorphologyEx(segmentated, segmentated, NULL, morphKernel, CV_MOP_OPEN,1);
 
-	//	cv::Mat redMat(segmentated);
+
+	//	cvMorphologyEx(segmentated, segmentated, NULL, se11, CV_MOP_OPEN, 1); // See completed example for cvClose definition
+	//	cvMorphologyEx(segmentated, segmentated, NULL, se5, CV_MOP_CLOSE, 1);  // See completed example for cvOpen  definition
+
+
+		//	cv::Mat redMat(segmentated);
 	/*	isCircle("isCircle", segmentated, 0,
 							0, imgSize.width, imgSize.height);
 
@@ -277,20 +350,30 @@ void *startRedObjectTracking(void *arg){
 //		CvSeq* p_seqCircles;
 		//IplImage *grayImage = cvCreateImage(imgSize, IPL_DEPTH_8U, 3);
 		Mat segmented(segmentated);
-		Mat grayImage;
-		cvtColor(segmented, grayImage, CV_RGB2GRAY);
+	//	Mat grayImage;
+		Mat grayImage(imgSize, CV_8UC1, cv::Scalar(0, 0, 0));
 
-		imshow("gray2", segmented);
+		sem_wait(&args->mutex);
+		CvPoint p = buscarRobot(segmentated, args->data.tLastPos);
 
-		GaussianBlur( grayImage, grayImage, cv::Size(3, 3), 0, 0 ); // estaba dsps del canny
-		Canny(grayImage, grayImage, 5, 70, 3);
+
+
+
+	//	cvtColor(segmented, grayImage, CV_RGB2GRAY);
+
+	//	imshow("HSV-Morphology", segmented);
+
+		//Para hough circles
+	//	GaussianBlur( grayImage, grayImage, cv::Size(3, 3), 0, 0 ); // estaba dsps del canny
+	//	Canny(grayImage, grayImage, 5, 70, 3);
+
+		//NOOO
 	//	GaussianBlur( grayImage, grayImage, cv::Size(15, 15), 0, 0 );
 	//	smooth(grayImage, grayImage, CV_GAUSSIAN, 15, 15);
 
+		/*
 		vector<cv::Vec3f> circles;
 		HoughCircles(grayImage, circles, CV_HOUGH_GRADIENT, 2, imgSize.height/4, 50, 10, 1, 20);//300,20
-
-//		float* p_fltXYRadius;
 
 		Posicion pos;
 		pos.x = -1;
@@ -302,16 +385,12 @@ void *startRedObjectTracking(void *arg){
 
 		Posicion predecida = calcular(args->data.tLastPos);
 		for(int i = 0; i < circles.size(); i++){
-		//	printf("ball position x: %f  y: %f radio: %f \n", circles[i][0], circles[i][1], circles[i][2]);
-		//	printf("center x: %d  y: %d radio: %f \n", imgSize.width / 2, imgSize.height / 2);
-
 
 			Posicion p;
 			p.x = circles[i][0];
 			p.y = circles[i][1];
 			p.z = pendiente * circles[i][2] + dominio;// se calcula la distancia en base a los valores predefinidos
 			p.diametro = circles[i][2];
-
 
 			if (args->data.tLastPos.size() != 0)
 			{
@@ -325,14 +404,6 @@ void *startRedObjectTracking(void *arg){
 			else
 				pos = p;
 
-			/*
-			p_fltXYRadius = (float*) cvGetSeqElem(p_seqCircles, i);
-			printf("ball position (x,y) = (%f,%f), radius = %f \n", p_fltXYRadius[0], p_fltXYRadius[1], p_fltXYRadius[2]);
-
-			cvCircle(grayImage, cvPoint(p_fltXYRadius[0], p_fltXYRadius[1]), p_fltXYRadius[2],
-								CV_RGB(255, 255, 255), 3, 8, 0);
-								*/
-		//	cvShowImage("redDetection", segmentated)
 		}
 		if (args->data.tLastPos.size() == 0 && pos.x != -1)
 		{
@@ -350,43 +421,144 @@ void *startRedObjectTracking(void *arg){
 		}
 		else
 		{
+			printf("Robot Lost\n");
 			args->data.tPos = pos;//calcular(args->data.tLastPos);
 			//pos = args->data.tPos;
 			//args->data.tPos.x += args->data.tPos.x - args->data.tLastPos.x;
 			//args->data.tPos.y += args->data.tPos.y - args->data.tLastPos.y;
 			//args->data.tLastPos = pos;
 		}
+		*/
+
+
+		Posicion predecida = calcular(args->data.tLastPos);
+		Posicion pos;
+		pos.x = p.x;
+		pos.y = p.y;
+		if (p.x == -1)
+			int a = 5;
+		float dist = -1;
+		if (args->data.tLastPos.size() != 0 && pos.x != -1)
+			dist = distancia(predecida, pos);
+
+
+
+		if (args->data.tLastPos.size() == 0 && pos.x != -1)
+		{
+			args->data.tPos = pos;
+			args->data.tLastPos.push_back(pos);
+		//	args->data.tLastPos = args->data.tPos;
+		}
+		else if (dist < 100 && dist != -1)
+		{
+			//args->data.tLastPos = args->data.tPos;
+			args->data.tLastPos.push_back(pos);
+			args->data.tPos = pos;
+			if (args->data.tLastPos.size() == FRAME)
+				args->data.tLastPos.erase(args->data.tLastPos.begin());
+		}
+		else
+		{
+			printf("Robot Lost\n");
+			Posicion p;
+			p.x = -1;
+			p.y = -1;
+			args->data.tPos = p;
+
+			//calcular(args->data.tLastPos);
+			//pos = args->data.tPos;
+			//args->data.tPos.x += args->data.tPos.x - args->data.tLastPos.x;
+			//args->data.tPos.y += args->data.tPos.y - args->data.tLastPos.y;
+			//args->data.tLastPos = pos;
+		}
+
+
 	//	printf("Distancia: %.f Altura: %d cm Diametro: %d \n", dist, args->data.tPos.z, args->data.tPos.diametro);
-		circle(grayImage, cvPoint(args->data.tPos.x, args->data.tPos.y), args->data.tPos.diametro,
+		circle(grayImage, cvPoint(args->data.tPos.x, args->data.tPos.y), 4,
 					CV_RGB(255, 0, 255), 2, 8, 0);
 
+		for(int i = 0; i < destinos.size(); i++)
+		{
 
+			line(grayImage,  cvPoint(destinos[i].x, destinos[i].y -5), cvPoint(destinos[i].x, destinos[i].y + 5),
+					CV_RGB(255,255,255),(nDestino == i) + 1, 8, 0);
+			line(grayImage,  cvPoint(destinos[i].x -5, destinos[i].y), cvPoint(destinos[i].x + 5, destinos[i].y),
+							CV_RGB(255,255,255), (nDestino == i) + 1, 8, 0);
+		}
 
-
-		line(grayImage,  cvPoint(imgSize.width / 2, imgSize.height / 2 -5), cvPoint(imgSize.width / 2, imgSize.height / 2 + 5),
-				CV_RGB(255,255,255),1, 8, 0);
-		line(grayImage,  cvPoint(imgSize.width / 2 -5, imgSize.height / 2), cvPoint(imgSize.width / 2 + 5, imgSize.height / 2),
-						CV_RGB(255,255,255),1, 8, 0);
-
-
+		args->data.destino.x = destinos[nDestino].x;
+		args->data.destino.y = destinos[nDestino].y;
 
 		string line1 = format("SET--> Pitch: %f, Roll: %f, Yaw: %f, Thrust: %d"
 				, args->data.copterSets.pitch, args->data.copterSets.roll, args->data.copterSets.yaw, args->data.copterSets.thust);
 
-		string line2 = format("GET--> Pitch: %f, Roll: %f, Yaw: %f, Thrust: %d",
-				args->data.copterValues.pitch, args->data.copterValues.roll, args->data.copterValues.yaw, args->data.copterValues.thust);
+		string line2 = format("GET--> Pitch: %f, Roll: %f, Yaw: %f, Thrust: %d, Pressure: %f",
+				args->data.copterValues.pitch, args->data.copterValues.roll, args->data.copterValues.yaw, args->data.copterValues.thust, args->data.copterValues.pressure);
 
 		string line3 = format("POSICION--> X: %d, Y: %d, Z: %d",
 						args->data.tPos.x, args->data.tPos.y, args->data.tPos.z);
 
-		sem_post(&args->mutex);
+
 
 		putText(grayImage, line1, cvPoint(10, 10), CV_FONT_HERSHEY_SIMPLEX, 0.4, CV_RGB(255, 255, 255));
 		putText(grayImage, line2, cvPoint(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.4, CV_RGB(255, 255, 255));
 		putText(grayImage, line3, cvPoint(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.4, CV_RGB(255, 255, 255));
-		imshow("redDetection2", grayImage);
-		outputVideo.write(grayImage);
-/*
+		imshow("Deteccion", grayImage);
+
+
+		//Genero los graficos
+		Mat graficos(cvSize(imgSize.width, HEIGHT_GRAF), CV_8UC3, cv::Scalar(255, 255, 255));
+
+		line(graficos,  cvPoint(0, CENTRO_Y), cvPoint(imgSize.width, CENTRO_Y),
+								CV_RGB(0,0,0),1, 8, 0);
+		line(graficos,  cvPoint(0, CENTRO_Y + 15 * AMPLIAR_Y), cvPoint(imgSize.width, CENTRO_Y + 15 * AMPLIAR_Y),
+								CV_RGB(0,0,0),1, 8, 0);
+		line(graficos,  cvPoint(0, CENTRO_Y - 15 * AMPLIAR_Y), cvPoint(imgSize.width, CENTRO_Y - 15 * AMPLIAR_Y),
+								CV_RGB(0,0,0),1, 8, 0);
+
+		for(int i = 0; i < int(args->data.copterSets.Kp.size() - 1); i++)
+		{
+			line(graficos,  cvPoint(i * AMPLIAR_X, CENTRO_Y + args->data.copterSets.Kp[i] * AMPLIAR_Y),
+					cvPoint((i + 1) * AMPLIAR_X, CENTRO_Y + args->data.copterSets.Kp[i + 1] * AMPLIAR_Y), CV_RGB(255,0,0), 1 ,8, 0);
+			line(graficos,  cvPoint(i * AMPLIAR_X, CENTRO_Y + args->data.copterSets.Ki[i] * AMPLIAR_Y),
+					cvPoint((i + 1) * AMPLIAR_X, CENTRO_Y + args->data.copterSets.Ki[i + 1] * AMPLIAR_Y), CV_RGB(0,180,0), 1 ,8, 0);
+			line(graficos,  cvPoint(i * AMPLIAR_X, CENTRO_Y + args->data.copterSets.Kd[i] * AMPLIAR_Y),
+					cvPoint((i + 1) * AMPLIAR_X, CENTRO_Y + args->data.copterSets.Kd[i + 1] * AMPLIAR_Y), CV_RGB(0,0,200), 1 ,8, 0);
+
+			line(graficos,  cvPoint(i * AMPLIAR_X, CENTRO_Y + args->data.copterSets.rolls[i] * AMPLIAR_Y),
+					cvPoint((i + 1) * AMPLIAR_X, CENTRO_Y + args->data.copterSets.rolls[i + 1] * AMPLIAR_Y), CV_RGB(255,255,0), 2 ,8, 0);
+
+			line(graficos,  cvPoint(i * AMPLIAR_X, CENTRO_Y + args->data.copterValues.rolls[i] * AMPLIAR_Y),
+					cvPoint((i + 1) * AMPLIAR_X, CENTRO_Y + args->data.copterValues.rolls[i + 1] * AMPLIAR_Y), CV_RGB(0,255,255), 2 ,8, 0);
+
+		}
+		putText(graficos, "proportional", cvPoint(10, 10), CV_FONT_HERSHEY_SIMPLEX, 0.4, CV_RGB(255, 0, 0));
+		putText(graficos, "integrate", cvPoint(10, 30), CV_FONT_HERSHEY_SIMPLEX, 0.4, CV_RGB(0, 255, 0));
+		putText(graficos, "derivate", cvPoint(10, 50), CV_FONT_HERSHEY_SIMPLEX, 0.4, CV_RGB(0, 0, 255));
+		putText(graficos, "roll", cvPoint(10, 70), CV_FONT_HERSHEY_SIMPLEX, 0.4, CV_RGB(255, 255, 0));
+
+		line(graficos,  cvPoint(imgSize.width - 100, 55), cvPoint(imgSize.width - 10, 55),
+					CV_RGB(0,0,0),2, 8, 0);
+
+		line(graficos,  cvPoint(imgSize.width - 55, 10), cvPoint(imgSize.width - 55, 100),
+					CV_RGB(0,0,0),2, 8, 0);
+
+		circle(graficos, cvPoint(imgSize.width - 55 - args->data.copterValues.roll * 5, 55), 4,
+							CV_RGB(255, 0, 255), -1, 8, 0);
+
+		circle(graficos, cvPoint(imgSize.width - 55, 55 - args->data.copterValues.pitch * 5), 4,
+							CV_RGB(255, 0, 0), -1, 8, 0);
+
+		sem_post(&args->mutex);
+		imshow("Graficos", graficos);
+
+		Mat color(cvSize(imgSize.width, imgSize.height), CV_8UC3, cv::Scalar(255, 255, 255));
+		Mat grande(cvSize(imgSize.width * 2, imgSize.height), CV_8UC3, cv::Scalar(255, 255, 255));
+		cvtColor(grayImage, color, CV_GRAY2RGB);
+		color.copyTo(grande.colRange(0, imgSize.width).rowRange(0, imgSize.height));
+		graficos.copyTo(grande.colRange(imgSize.width, imgSize.width * 2).rowRange(0, HEIGHT_GRAF));
+		outputVideo.write(grande);
+		/*
 		gettimeofday(&end, NULL);
 
 		seconds  = end.tv_sec  - start.tv_sec;
@@ -401,8 +573,8 @@ void *startRedObjectTracking(void *arg){
 
 					//(gris, circulos, CV_HOUGH_GRADIENT, 1, gris.rows / 4, 100, 100,
 			//		0, 0);
-
-//		cvShowImage("redMorphology", segmentated);
+		outputVideo3.write(segmentated);
+		cvShowImage("redMorphology", segmentated);
 /*
 
 		IplImage *labelImg = cvCreateImage(cvGetSize(frame), IPL_DEPTH_LABEL,
@@ -507,8 +679,8 @@ void *startRedObjectTracking(void *arg){
 
 
 	}
-
-	cvReleaseStructuringElement(&morphKernel);
+	cvReleaseStructuringElement(&se11);
+	cvReleaseStructuringElement(&se5);
 	cvReleaseImage(&frame);
 	outputVideo.release();
 
@@ -535,10 +707,10 @@ bool isSimilar(CvScalar color)
 bool isSimilarHsv(CvScalar color)
 {
 
-	if ((color.val[0] > hsvMin.val[0] && color.val[0] < hsvMax.val[0] &&
+	if ( ((color.val[0] < 9 || (color.val[0] > hsvMin.val[0] && color.val[0] < hsvMax.val[0]) ) &&
 			color.val[1] > hsvMin.val[1] && color.val[1] < hsvMax.val[1] &&
 			color.val[2] > hsvMin.val[2] && color.val[2] < hsvMax.val[2]) ||
-			(color.val[0] > hsvMin.val[0] && color.val[0] < hsvMax.val[0] &&
+			((color.val[0] < 9 || (color.val[0] > hsvMin.val[0] && color.val[0] < hsvMax.val[0])) &&
 						color.val[1] > hsvMin.val[1] + 100 && color.val[1] < hsvMax.val[1] &&
 						color.val[2] > hsvMin.val[2] - 40 && color.val[2] < hsvMax.val[2]))
 		return true;
@@ -549,6 +721,10 @@ bool isSimilarHsv(CvScalar color)
 
 
 float distancia(Posicion pos1, Posicion pos2)
+{
+	return sqrt(pow(fabs(pos1.x - pos2.x),2) + pow(fabs(pos1.y - pos2.y), 2));
+}
+float distancia(CvPoint pos1, CvPoint pos2)
 {
 	return sqrt(pow(fabs(pos1.x - pos2.x),2) + pow(fabs(pos1.y - pos2.y), 2));
 }
@@ -599,9 +775,9 @@ Posicion calcular(std::vector<Posicion> tLastPos)
 		desplazamiento.diametro /= e;
 
 		Posicion p;
-		p.x = tLastPos[tLastPos.size() - 1].x + desplazamiento.x;
-		p.y = tLastPos[tLastPos.size() - 1].y + desplazamiento.y;
-		p.diametro = tLastPos[tLastPos.size() - 1].diametro + desplazamiento.diametro;
+		p.x = tLastPos[tLastPos.size() - 1].x - desplazamiento.x;
+		p.y = tLastPos[tLastPos.size() - 1].y - desplazamiento.y;
+		p.diametro = tLastPos[tLastPos.size() - 1].diametro - desplazamiento.diametro;
 		return p;
 /*
 		centro.x /= e;
@@ -618,4 +794,208 @@ Posicion calcular(std::vector<Posicion> tLastPos)
 		return tLastPos[0];
 	else
 		return desplazamiento;
+}
+
+void CallBackClick(int event, int x, int y, int flags, void* userdata)
+{
+     if  ( event == cv::EVENT_LBUTTONDOWN )
+     {
+
+    	 nDestino++;
+    	 if (nDestino == destinos.size())
+    		 nDestino = 0;
+     }
+}
+void sumarScalar(CvScalar &val, CvScalar val2)
+{
+	val.val[0] += val2.val[0];
+	val.val[1] += val2.val[1];
+	val.val[2] += val2.val[2];
+//	val.val[3] += val2.val[3];
+}
+void dividirScalar(CvScalar &val, float val2)
+{
+	val.val[0] /= val2;
+	val.val[1] /= val2;
+	val.val[2] /= val2;
+//	val.val[3] /= val2;
+}
+CvPoint buscarRobot(CvArr *source, std::vector<Posicion> tLastPos)
+{
+	vector<CvPoint> puntos;
+	CvPoint p = cvPoint(0, 0);
+	CvPoint p2 = cvPoint(0, 0);
+	int count = 0;
+
+	//Busco los puntos negros y los guardo en un vector
+	for (int j = 0; j < 480; j++)
+	{
+		for (int i = 0; i < 640; i++) {
+			CvScalar c = cvGet2D(source, j, i);//y, x
+			if (c.val[0] == 0)
+			{
+				puntos.push_back(cvPoint(i, j));
+			//	p.x += i;
+			//	p.y += j;
+				count++;
+			}
+		}
+
+	}
+	//armo grupos de puntos de acuerdo a la cercania de los mismos
+	vector< vector<CvPoint> > grupos;
+	while(puntos.size() != 0)
+	{
+		vector<CvPoint> row;
+		row.push_back(puntos[0]);
+		puntos.erase(puntos.begin());
+		for (int e = 0; e < puntos.size(); e++)
+		{
+			if (distancia(puntos[e], row[0]) < 20)
+			{
+				row.push_back(puntos[e]);
+				puntos.erase(puntos.begin() + e);
+				e--;
+			}
+		}
+		grupos.push_back( row );
+	}
+
+	//Calculo el centro de los grupos
+	vector <CvPoint> centros;
+	for (int i = 0; i < grupos.size(); i++)
+	{
+		p.x = 0;
+		p.y = 0;
+		for (int e = 0 ; e < grupos[i].size(); e++)
+		{
+			p.x += grupos[i][e].x;
+			p.y += grupos[i][e].y;
+
+		}
+		if (grupos[i].size() != 0)
+		{
+			p.x /= grupos[i].size();
+			p.y /= grupos[i].size();
+			centros.push_back(p);
+		}
+
+	}
+
+	//Elijo el grupo mas cercano a destino
+	Posicion predecida = calcular(tLastPos);
+	CvPoint pred = cvPoint(predecida.x, predecida.y);
+
+	int pos = -1;
+	float dist = -1;
+	float sizes = -1;
+	int pos2 = -1;
+	if (tLastPos.size() != 0)
+	{
+		for (int i = 0; i < centros.size(); i++)
+		{
+			if (grupos[i].size() > sizes)
+			{
+				sizes = grupos[i].size();
+				pos2 = i;
+			}
+			if(distancia(centros[i], pred) < dist  || dist == -1)
+			{
+				dist = distancia(centros[i], pred);
+				pos = i;
+			}
+
+
+		}
+	}
+	else if (tLastPos.size() == 0)
+	{
+
+		for (int i = 0; i < grupos.size(); i++)
+		{
+			if(grupos[pos].size() < grupos[i].size())
+				pos = i;
+
+		}
+	}
+
+	if (pos != -1 && dist < 80)
+	{
+		m_myfile << "Predecida X: "<<predecida.x<< " Y: "<< predecida.y<< " Pos X: "<< centros[pos].x<< " Y: "<< centros[pos].y<< " Dist: "<<dist <<" Pixeles: "<<grupos[pos].size()<< endl;//"\n";
+		bPerdido = false;
+		return centros[pos];
+	}
+	else if(bPerdido && pos2 != -1)
+	{
+		m_myfile << "Predecida X: "<<predecida.x<< " Y: "<< predecida.y<< " Pos X: "<< centros[pos2].x<< " Y: "<< centros[pos2].y<< " Dist: "<<dist <<" Pixeles: "<<grupos[pos2].size()<< " Perdidoo "<< endl;//"\n";
+		bPerdido = false;
+		return centros[pos2];
+	}
+	else
+	{
+		m_myfile << "Predecida X: "<<predecida.x<< " Y: "<< predecida.y<< " Dist: "<<dist<< endl;//"\n";
+		bPerdido = true;
+		return cvPoint(-1,-1);
+	}
+
+
+
+
+	/*
+
+	if (count != 0)
+	{
+		p.x /= count;
+		p.y /= count;
+	}
+	for (int i = 0 ; i < puntos.size(); i++)
+		if (distancia(p, puntos[i]) > 200)
+			puntos.erase(puntos.begin() + i);
+		else
+		{
+			p2.x += puntos[i].x;
+			p2.y += puntos[i].y;
+
+		}
+	if (count != 0)
+	{
+		p2.x /= puntos.size();
+		p2.y /= puntos.size();
+	}
+	p.x = 0;
+	p.y = 0;
+	for (int i = 0 ; i < puntos.size(); i++)
+			if (distancia(p2, puntos[i]) > 70)
+				puntos.erase(puntos.begin() + i);
+			else
+			{
+				p.x += puntos[i].x;
+				p.y += puntos[i].y;
+			}
+	if (puntos.size() != 0)
+	{
+		p.x /= puntos.size();
+		p.y /= puntos.size();
+	}
+	p2.x = 0;
+	p2.y = 0;
+	for (int i = 0 ; i < puntos.size(); i++)
+			if (distancia(p, puntos[i]) > 30)
+				puntos.erase(puntos.begin() + i);
+			else
+			{
+				p2.x += puntos[i].x;
+				p2.y += puntos[i].y;
+			}
+	if (puntos.size() != 0)
+	{
+		p2.x /= puntos.size();
+		p2.y /= puntos.size();
+	}
+	else
+	{
+		p2.x = -1;
+		p2.y = -1;
+	}*/
+//	return p;
 }

@@ -13,7 +13,7 @@
 #define ALTURA_DETECTION_H_
 const int FRAME2 = 7;
 
-void *startAlturaDetection(void *arg);
+void *startCamara2(void *arg);
 //int startRedObjectTracking();
 float distancia2(Posicion pos1, Posicion pos2);
 bool isSimilar2(CvScalar color);

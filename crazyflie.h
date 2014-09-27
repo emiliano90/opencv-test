@@ -13,7 +13,7 @@
 #include "PID.h"
 
 //Roll/pitch limitXZ
-const float CAP = 15;
+const float CAP = 12;
 //Thrust limit
 const int TH_CAP = 55000;
 

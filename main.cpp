@@ -33,41 +33,40 @@ int main(int argc, char* argv[]) {
 	pthread_t tid1, tid2;
 
 //	startBallDetection();
-
-	if (pthread_create(&tid1, NULL, startAlturaDetection, &attr)) {
+/*
+	if (pthread_create(&tid1, NULL, startCamara1, &attr)) {
 
 		printf("\n ERROR creating tstatic void *startAlturaDetection(void *arg) {hread 1");
 		exit(1);
 	}
-
-/*	if (pthread_create(&tid1, NULL, startRedObjectTracking, &attr)) {
+*/
+/*	if (pthread_create(&tid1, NULL, startCamara2, &attr)) {
 
 		printf("\n ERROR creating tstatic void *startRedObjectTracking(void *arg) {hread 1");
 		exit(1);
 	}
-//*/	startRedObjectTracking(&attr);
+//*///	startRedObjectTracking(&attr);
 //	wait();
 
-/*
-	if (pthread_create(&tid1, NULL, startRedObjectTracking, &attr)) {
 
-		printf("\n ERROR creating tstatic void *startRedObjectTracking(void *arg) {hread 1");
+	if (pthread_create(&tid1, NULL, startCamara1, &attr)) {
+
+		printf("\n ERROR creating tstatic void *startCamara1(void *arg) {hread 1");
 		exit(1);
 	}
-	if (pthread_create(&tid1, NULL, startAlturaDetection, &attr)) {
+/*	if (pthread_create(&tid1, NULL, startCamara2, &attr)) {
 
-		printf("\n ERROR creating tstatic void *startAlturaDetection(void *arg) {hread 1");
+		printf("\n ERROR creating tstatic void *startCamara2(void *arg) {hread 1");
 		exit(1);
 	}
-
-	startCrazyFlie(&attr);*/
-	wait();
-
-/*	if (pthread_create(&tid2, NULL, startCrazyFlie, &attr)) {
+*/
+	startCrazyFlie(&attr);
+/*	wait();
+	if (pthread_create(&tid2, NULL, startCrazyFlie, &attr)) {
 
 		printf("\n ERROR creating thread 2");
 		exit(1);
-	}*/
+	}
 	/*
 	 if ((pid = fork()) < 0)
 	 perror("fork() error");

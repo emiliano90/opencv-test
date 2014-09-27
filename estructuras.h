@@ -35,9 +35,16 @@ struct Point {
 };
 
 struct Copter {
+	std::vector<float> Kp;
+	std::vector<float> Ki;
+	std::vector<float> Kd;
+	std::vector<float> rolls;
+	std::vector<float> pitchs;
+
 	float roll;
 	float pitch;
 	float yaw;
+	float pressure;
 	int thust;
 };
 
@@ -50,6 +57,7 @@ struct Datos {
 	char key;
 	Copter copterSets;
 	Copter copterValues;
+	Point destino;
 };
 
 struct ThreadAttr {
